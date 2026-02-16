@@ -1,0 +1,8 @@
+# SubZeroClaw configuration
+# Copy to ~/.subzeroclaw/config and edit
+
+api_key = "sk-or-your-openrouter-key-here"
+model = "anthropic/claude-sonnet-4-20250514"
+# endpoint = "https://openrouter.ai/api/v1/chat/completions"
+# skills_dir = "~/.subzeroclaw/skills"
+# max_turns = 50
