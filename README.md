@@ -139,7 +139,7 @@ No vector DB. No embeddings. One API call to compress context.
 | `endpoint` | `https://openrouter.ai/api/v1/chat/completions` | API endpoint |
 | `skills_dir` | `~/.subzeroclaw/skills` | Path to skill markdown files |
 | `log_dir` | `~/.subzeroclaw/logs` | Session log directory |
-| `max_turns` | 50 | Max tool-call loops per input |
+| `max_turns` | 200 | Max tool-call loops per input |
 | `max_messages` | 40 | Trigger context compaction |
 | `compact_keep` | 16 | Raw messages to keep after compaction |
 

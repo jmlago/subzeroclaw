@@ -31,7 +31,7 @@ int config_load(Cfg *c) {
     snprintf(c->ep,MV,"https://openrouter.ai/api/v1/chat/completions");
     snprintf(c->model,MV,"anthropic/claude-sonnet-4-20250514");
     snprintf(c->skills,MP,"%s/.subzeroclaw/skills",h);snprintf(c->logdir,MP,"%s/.subzeroclaw/logs",h);
-    c->key[0]=0; c->mt=50; c->mm=40; c->ck=16;
+    c->key[0]=0; c->mt=200; c->mm=40; c->ck=16;
     char path[MP]; snprintf(path,MP,"%s/.subzeroclaw/config",h);
     FILE *f=fopen(path,"r"); if(f){char ln[2048]; while(fgets(ln,sizeof ln,f)){
         size_t l=strlen(ln); while(l&&strchr("\n\r ",ln[l-1]))ln[--l]=0;
