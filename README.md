@@ -151,9 +151,13 @@ src/
 
 ## Philosophy
 
-The intelligence is in the LLM, not in the runtime. The runtime's only job is to give the model a skill and a shell, then get out of the way.
+SubZeroClaw is an anti-framework. It does one thing: connect an LLM to a shell and loop. That's it. No plugin system, no middleware, no lifecycle hooks, no dependency injection. Just the loop.
 
-OpenClaw solved this with 430,000 lines of TypeScript. ZeroClaw re-solved it with 15,000 lines of Rust. Both are good — but both carry the weight of problems that only exist at platform scale: multi-tenancy, channel routing, identity portability, plugin registries.
+This follows the Unix philosophy — do one thing and do it well. `grep` searches text. `curl` fetches URLs. `subzeroclaw` runs an agentic loop. It doesn't need to know about git, email, HTTP, or filesystems because the tools that already do those things are one `popen()` away. The model calls `git` the same way you do. The entire system is the integration layer.
+
+Every layer of "framework" between the model and the shell is complexity that adds nothing. If the model can run `git`, why build a git adapter? If it can run `curl`, why build an HTTP tool? If it can run `tee`, why build a file-writing abstraction? Frameworks grow because they solve problems that emerge from their own architecture — channel routing because they support multiple channels, plugin registries because they have plugins, security models because they run untrusted code. SubZeroClaw has none of these problems because it doesn't have any of these features. One agent, one skill, one device. The code that remains is the code that can't be removed.
+
+OpenClaw solved the agentic loop with 430,000 lines of TypeScript. ZeroClaw re-solved it with 15,000 lines of Rust. Both are good — but both carry the weight of problems that only exist at platform scale: multi-tenancy, channel routing, identity portability, plugin registries.
 
 SubZeroClaw asks: what if the problem is just "one agent, one skill, one device"? Then the answer is ~380 readable lines of C.
 
