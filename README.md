@@ -61,6 +61,8 @@ EOF
 
 No format spec. No skill registry. No trigger matching. Just plain text the LLM reads.
 
+The skills included in this repo (`skills/`) are just examples to show the format. They reference tools and paths specific to one setup. Don't use them as-is — write your own for your system, your tools, your workflow. The whole point is that a skill is just a markdown file you write in 30 seconds.
+
 ## Build
 
 ```bash
