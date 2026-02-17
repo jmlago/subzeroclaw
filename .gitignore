@@ -1,4 +1,21 @@
-.env
+# Build artifacts
 subzeroclaw
 test_subzeroclaw
 watchdog
+*.o
+*.so
+*.so.*
+*.a
+
+# Secrets
+.env
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
