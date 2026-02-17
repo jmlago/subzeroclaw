@@ -1,5 +1,7 @@
 # SubZeroClaw
 
+> **WARNING: This software executes arbitrary shell commands with no safety checks, no confirmation prompts, no sandboxing, and no guardrails. The LLM decides what to run and the runtime runs it — `rm -rf /` included. There is nothing between the model's output and your system. If you don't understand what that means, do not use this. This is a bare agentic loop: execute the task, whatever it takes, nothing more, nothing less.**
+
 **~380 lines of C. 54KB binary. A skill-driven agentic daemon for edge hardware.**
 
 ```
