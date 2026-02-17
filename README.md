@@ -1,12 +1,12 @@
 # SubZeroClaw
 
-**197 lines of C. 58KB binary. A skill-driven agentic daemon for edge hardware.**
+**~380 lines of C. 54KB binary. A skill-driven agentic daemon for edge hardware.**
 
 ```
 skill.md + LLM + shell + loop = autonomous agent
 ```
 
-Every agentic runtime does the same thing: read a skill, call an LLM, execute tools, loop. SubZeroClaw is that principle written directly in C — no framework, no abstractions, no architecture mimicking a problem that never existed. One file, one loop, three tools.
+Every agentic runtime does the same thing: read a skill, call an LLM, execute tools, loop. SubZeroClaw is that principle written directly in C — no framework, no abstractions, no architecture mimicking a problem that never existed. One file, one loop, one tool.
 
 ## What it does
 
@@ -31,23 +31,17 @@ SubZeroClaw doesn't simplify their architecture. It ignores it and writes the lo
 |                   | SubZeroClaw  | ZeroClaw     | OpenClaw     |
 |-------------------|--------------|--------------|--------------|
 | Language          | C            | Rust         | TypeScript   |
-| Source            | 197 lines    | ~15,000      | ~430,000     |
-| Binary            | 58 KB        | 3.4 MB       | 80+ MB       |
+| Source            | ~380 lines   | ~15,000      | ~430,000     |
+| Binary            | 54 KB        | 3.4 MB       | 80+ MB       |
 | RAM (runtime)     | ~14 MB       | < 5 MB       | 80-120 MB    |
 | Compiles on Pi    | 0.5s         | OOM          | slow         |
 | Dependencies      | curl, cJSON  | ~100 crates  | ~800 npm     |
 
-## Tools
+## Tool
 
-Three tools. The shell makes every CLI program on the system available to the LLM:
+One tool: **shell**. `popen()` any command, stderr merged into stdout.
 
-| Tool | What it does |
-|------|-------------|
-| **shell** | `popen()` any command |
-| **read_file** | Read file contents |
-| **write_file** | Write/create files, auto `mkdir -p` |
-
-Since the LLM has a shell, it has `git`, `curl`, `himalaya`, `signal-cli`, `ffmpeg`, `jq`, `khal`, `pass` — whatever you install. No adapters, no integrations. The adapter is the shell.
+Since the LLM has a shell, it has `git`, `curl`, `himalaya`, `signal-cli`, `ffmpeg`, `jq`, `khal`, `pass` — whatever you install. For file operations, the model uses `cat`, `tee`, `sed`, etc. No adapters, no integrations. The adapter is the shell.
 
 ## Skills
 
@@ -68,9 +62,9 @@ No format spec. No skill registry. No trigger matching. Just plain text the LLM 
 ## Build
 
 ```bash
-make            # builds subzeroclaw (58KB)
+make            # builds subzeroclaw (54KB)
 make watchdog   # builds watchdog (17KB)
-make test       # runs 14 tests
+make test       # runs 16 tests
 make install    # copies to ~/.local/bin/
 ```
 
@@ -141,15 +135,14 @@ No vector DB. No embeddings. One API call to compress context.
 | `log_dir` | `~/.subzeroclaw/logs` | Session log directory |
 | `max_turns` | 200 | Max tool-call loops per input |
 | `max_messages` | 40 | Trigger context compaction |
-| `compact_keep` | 16 | Raw messages to keep after compaction |
 
 ## Source
 
 ```
 src/
-├── subzeroclaw.c   197 lines   The entire runtime
-├── test.c                      14 tests
-├── watchdog.c       47 lines   Crash recovery + backoff
+├── subzeroclaw.c   ~380 lines  The entire runtime
+├── test.c                      16 tests
+├── watchdog.c       50 lines   Crash recovery + backoff
 ├── cJSON.c                     Vendored JSON parser
 └── cJSON.h
 ```
@@ -160,7 +153,7 @@ The intelligence is in the LLM, not in the runtime. The runtime's only job is to
 
 OpenClaw solved this with 430,000 lines of TypeScript. ZeroClaw re-solved it with 15,000 lines of Rust. Both are good — but both carry the weight of problems that only exist at platform scale: multi-tenancy, channel routing, identity portability, plugin registries.
 
-SubZeroClaw asks: what if the problem is just "one agent, one skill, one device"? Then the answer is 197 lines of C.
+SubZeroClaw asks: what if the problem is just "one agent, one skill, one device"? Then the answer is ~380 readable lines of C.
 
 ## License
 

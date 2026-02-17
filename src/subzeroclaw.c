@@ -83,16 +83,6 @@ static void log_write(FILE *log, const char *role, const char *content) {
     fprintf(log, "[%s] %s: %s\n", ts, role, content); fflush(log);
 }
 
-static char *read_file(const char *path, long max_size) {
-    FILE *f = fopen(path, "r"); if (!f) return NULL;
-    fseek(f, 0, SEEK_END); long size = ftell(f); fseek(f, 0, SEEK_SET);
-    if (max_size > 0 && size > max_size) size = max_size;
-    char *buf = malloc(size + 1);
-    buf[fread(buf, 1, size, f)] = '\0';
-    fclose(f);
-    return buf;
-}
-
 static int write_temp(const char *prefix, const char *data, char *out, size_t out_size) {
     snprintf(out, out_size, "/tmp/.szc_%s_XXXXXX", prefix);
     int fd = mkstemp(out); if (fd < 0) return -1;
@@ -100,20 +90,6 @@ static int write_temp(const char *prefix, const char *data, char *out, size_t ou
     if (!f) { close(fd); unlink(out); return -1; }
     fputs(data, f); fclose(f);
     return 0;
-}
-
-static char *generate_session_id(void) {
-    static char sid[32];
-    FILE *r = fopen("/dev/urandom", "r");
-    if (r) {
-        unsigned char b[8];
-        if (fread(b, 1, 8, r) == 8)
-            snprintf(sid, sizeof(sid), "%02x%02x%02x%02x%02x%02x%02x%02x",
-                b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
-        fclose(r);
-    }
-    if (!sid[0]) snprintf(sid, sizeof(sid), "%lx%x", (long)time(NULL), getpid());
-    return sid;
 }
 
 static char *http_post(const char *url, const char *api_key, const char *body) {
@@ -147,15 +123,11 @@ static const char TOOLS_JSON[] =
     "\"parameters\":{\"type\":\"object\","
     "\"properties\":{\"command\":{\"type\":\"string\"}},\"required\":[\"command\"]}}}]";
 
-static const char *arg_str(cJSON *args, const char *field) {
-    cJSON *item = cJSON_GetObjectItem(args, field);
-    return (item && cJSON_IsString(item)) ? item->valuestring : NULL;
-}
-
 char *tool_execute(const char *name, const char *args_json) {
     if (strcmp(name, "shell")) return strdup("error: unknown tool");
     cJSON *args = cJSON_Parse(args_json);
-    const char *cmd = arg_str(args, "command");
+    cJSON *cmd_item = args ? cJSON_GetObjectItem(args, "command") : NULL;
+    const char *cmd = (cmd_item && cJSON_IsString(cmd_item)) ? cmd_item->valuestring : NULL;
     if (!cmd) { if (args) cJSON_Delete(args); return strdup("error: missing 'command'"); }
     size_t len = strlen(cmd);
     char *full = malloc(len + 8);
@@ -169,11 +141,8 @@ char *tool_execute(const char *name, const char *args_json) {
         total += n; if (total >= MAX_OUTPUT - 1) break;
     }
     out[total] = '\0'; pclose(fp);
-    if (total + 1 < MAX_OUTPUT / 2) { char *s = realloc(out, total + 1); if (s) out = s; }
     return out;
 }
-
-cJSON *tools_build_definitions(void) { return cJSON_Parse(TOOLS_JSON); }
 
 char *agent_build_system_prompt(const char *skills_dir) {
     size_t cap = 8192;
@@ -188,7 +157,10 @@ char *agent_build_system_prompt(const char *skills_dir) {
         size_t nlen = strlen(entry->d_name);
         if (nlen < 4 || strcmp(entry->d_name + nlen - 3, ".md") != 0) continue;
         char fp[MAX_PATH]; snprintf(fp, MAX_PATH, "%s/%s", skills_dir, entry->d_name);
-        char *content = read_file(fp, 0); if (!content) continue;
+        FILE *sf = fopen(fp, "r"); if (!sf) continue;
+        fseek(sf, 0, SEEK_END); long sz = ftell(sf); fseek(sf, 0, SEEK_SET);
+        char *content = malloc(sz + 1);
+        content[fread(content, 1, sz, sf)] = '\0'; fclose(sf);
         size_t clen = strlen(content);
         while (len + clen + 128 >= cap) { cap *= 2; prompt = realloc(prompt, cap); }
         len += snprintf(prompt + len, cap - len, "\n--- SKILL: %s ---\n", entry->d_name);
@@ -280,12 +252,12 @@ static int compact_messages(const Config *cfg, cJSON *msgs, FILE *log) {
     char *summary = strdup(resp.text); free(rb); response_free(&resp);
     log_write(log, "COMPACT", summary);
 
-    /* rebuild: system + summary pair + last 3 raw messages */
+    /* rebuild: system + summary pair + last 10 raw messages */
     int keep = 10;
     int start = total - keep;
     if (start < 1) start = 1;
 
-    /* delete everything except system prompt and last 3 */
+    /* delete everything except system prompt and last 10 */
     for (int i = start - 1; i >= 1; i--)
         cJSON_DeleteItemFromArray(msgs, i);
     /* insert summary pair after system */
@@ -360,7 +332,14 @@ int main(int argc, char **argv) {
     char *sysprompt = agent_build_system_prompt(cfg.skills_dir);
     if (!sysprompt) return 1;
 
-    char *sid = generate_session_id();
+    char sid[32] = {0};
+    { FILE *ur = fopen("/dev/urandom", "r");
+      if (ur) { unsigned char b[8];
+          if (fread(b, 1, 8, ur) == 8)
+              snprintf(sid, sizeof(sid), "%02x%02x%02x%02x%02x%02x%02x%02x",
+                  b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+          fclose(ur); }
+      if (!sid[0]) snprintf(sid, sizeof(sid), "%lx%x", (long)time(NULL), getpid()); }
     mkdirp(cfg.log_dir);
     char lp[600]; snprintf(lp, sizeof(lp), "%s/%s.txt", cfg.log_dir, sid);
     FILE *log = fopen(lp, "a");

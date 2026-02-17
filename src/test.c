@@ -11,8 +11,8 @@ static int tests_failed = 0;
 
 /* ======== TOOL TESTS ======== */
 
-static void test_shell_ls(void) {
-    TEST("shell: ls /tmp");
+static void test_shell_echo(void) {
+    TEST("shell: echo");
     char *r = tool_execute("shell", "{\"command\": \"echo hello_subzeroclaw\"}");
     assert(r);
     if (strstr(r, "hello_subzeroclaw")) PASS();
@@ -38,32 +38,6 @@ static void test_shell_stderr(void) {
     free(r);
 }
 
-static void test_write_read_file(void) {
-    TEST("write_file + read_file roundtrip");
-    char *w = tool_execute("write_file",
-        "{\"path\": \"/tmp/subzeroclaw_test.txt\", \"content\": \"hola desde el bosque\\n\"}");
-    assert(w);
-    free(w);
-
-    char *r = tool_execute("read_file", "{\"path\": \"/tmp/subzeroclaw_test.txt\"}");
-    assert(r);
-    if (strstr(r, "hola desde el bosque")) PASS();
-    else FAIL(r);
-    free(r);
-    remove("/tmp/subzeroclaw_test.txt");
-}
-
-static void test_write_mkdir(void) {
-    TEST("write_file: mkdir -p nested dirs");
-    char *w = tool_execute("write_file",
-        "{\"path\": \"/tmp/szc_test/nested/dir/file.txt\", \"content\": \"deep\"}");
-    assert(w);
-    if (strstr(w, "wrote")) PASS();
-    else FAIL(w);
-    free(w);
-    system("rm -rf /tmp/szc_test");
-}
-
 static void test_unknown_tool(void) {
     TEST("unknown tool returns error");
     char *r = tool_execute("teleport", "{\"destination\": \"mars\"}");
@@ -85,12 +59,12 @@ static void test_shell_bad_args(void) {
 /* ======== JSON / TOOLS DEFINITION TESTS ======== */
 
 static void test_tools_definitions(void) {
-    TEST("tools_build_definitions structure");
-    cJSON *tools = tools_build_definitions();
+    TEST("TOOLS_JSON structure");
+    cJSON *tools = cJSON_Parse(TOOLS_JSON);
     assert(tools);
     int n = cJSON_GetArraySize(tools);
-    if (n == 3) PASS();
-    else { char m[64]; snprintf(m, 64, "expected 3 tools, got %d", n); FAIL(m); }
+    if (n == 1) PASS();
+    else { char m[64]; snprintf(m, 64, "expected 1 tool, got %d", n); FAIL(m); }
 
     /* verify shell tool structure */
     cJSON *t0 = cJSON_GetArrayItem(tools, 0);
@@ -104,7 +78,7 @@ static void test_tools_definitions(void) {
 /* ======== RESPONSE PARSING TESTS ======== */
 
 static void test_parse_stop_response(void) {
-    TEST("parse: stop response");
+    TEST("parse_response: stop");
     const char *mock = "{"
         "\"choices\": [{"
         "  \"finish_reason\": \"stop\","
@@ -114,25 +88,20 @@ static void test_parse_stop_response(void) {
         "  }"
         "}]"
         "}";
-
-    cJSON *root = cJSON_Parse(mock);
-    cJSON *choices = cJSON_GetObjectItem(root, "choices");
-    cJSON *choice = cJSON_GetArrayItem(choices, 0);
-    cJSON *fr = cJSON_GetObjectItem(choice, "finish_reason");
-    cJSON *msg = cJSON_GetObjectItem(choice, "message");
-    cJSON *content = cJSON_GetObjectItem(msg, "content");
-
-    if (strcmp(fr->valuestring, "stop") == 0 &&
-        strstr(content->valuestring, "forest"))
+    Response resp;
+    int rc = parse_response(mock, &resp);
+    if (rc == 0 &&
+        strcmp(resp.finish_reason, "stop") == 0 &&
+        resp.text && strstr(resp.text, "forest") &&
+        resp.tool_calls == NULL)
         PASS();
     else
         FAIL("parse mismatch");
-
-    cJSON_Delete(root);
+    response_free(&resp);
 }
 
 static void test_parse_tool_calls_response(void) {
-    TEST("parse: tool_calls response");
+    TEST("parse_response: tool_calls");
     const char *mock = "{"
         "\"choices\": [{"
         "  \"finish_reason\": \"tool_calls\","
@@ -150,39 +119,33 @@ static void test_parse_tool_calls_response(void) {
         "  }"
         "}]"
         "}";
-
-    cJSON *root = cJSON_Parse(mock);
-    assert(root);
-    cJSON *choices = cJSON_GetObjectItem(root, "choices");
-    cJSON *choice = cJSON_GetArrayItem(choices, 0);
-    cJSON *fr = cJSON_GetObjectItem(choice, "finish_reason");
-    cJSON *msg = cJSON_GetObjectItem(choice, "message");
-    cJSON *tc = cJSON_GetObjectItem(msg, "tool_calls");
-
-    int ok = 1;
-    if (strcmp(fr->valuestring, "tool_calls") != 0) ok = 0;
-    if (cJSON_GetArraySize(tc) != 1) ok = 0;
-
-    cJSON *call = cJSON_GetArrayItem(tc, 0);
-    cJSON *fn = cJSON_GetObjectItem(call, "function");
-    cJSON *fn_name = cJSON_GetObjectItem(fn, "name");
-    cJSON *fn_args = cJSON_GetObjectItem(fn, "arguments");
-
-    if (strcmp(fn_name->valuestring, "shell") != 0) ok = 0;
-
-    /* parse the double-encoded args */
-    cJSON *args = cJSON_Parse(fn_args->valuestring);
-    if (!args) ok = 0;
-    else {
-        cJSON *cmd = cJSON_GetObjectItem(args, "command");
-        if (!cmd || strcmp(cmd->valuestring, "uname -a") != 0) ok = 0;
-        cJSON_Delete(args);
-    }
-
+    Response resp;
+    int rc = parse_response(mock, &resp);
+    int ok = (rc == 0 &&
+        strcmp(resp.finish_reason, "tool_calls") == 0 &&
+        resp.text == NULL &&
+        resp.tool_calls != NULL &&
+        cJSON_GetArraySize(resp.tool_calls) == 1);
     if (ok) PASS();
-    else FAIL("tool_calls parse mismatch");
+    else FAIL("parse mismatch");
+    response_free(&resp);
+}
 
-    cJSON_Delete(root);
+static void test_parse_error_response(void) {
+    TEST("parse_response: API error");
+    const char *mock = "{\"error\": {\"message\": \"rate limited\"}}";
+    Response resp;
+    int rc = parse_response(mock, &resp);
+    if (rc == -1) PASS();
+    else { FAIL("expected -1"); response_free(&resp); }
+}
+
+static void test_parse_garbage(void) {
+    TEST("parse_response: garbage input");
+    Response resp;
+    int rc = parse_response("not json {{{", &resp);
+    if (rc == -1) PASS();
+    else { FAIL("expected -1"); response_free(&resp); }
 }
 
 /* ======== END-TO-END MOCK TEST ======== */
@@ -237,16 +200,59 @@ static void test_skills_loading(void) {
     system("rm -rf /tmp/szc_skills");
 }
 
-/* ======== CONFIG TEST ======== */
+/* ======== REQUEST BUILDING TESTS ======== */
+
+static void test_build_request(void) {
+    TEST("build_request: JSON structure");
+    Config cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    snprintf(cfg.model, MAX_VALUE, "test-model");
+    cJSON *msgs = cJSON_CreateArray();
+    cJSON_AddItemToArray(msgs, make_msg("system", "hello"));
+    cJSON *tools = cJSON_Parse(TOOLS_JSON);
+    char *json = build_request(&cfg, msgs, tools);
+    assert(json);
+    cJSON *req = cJSON_Parse(json);
+    assert(req);
+    cJSON *model = cJSON_GetObjectItem(req, "model");
+    cJSON *m = cJSON_GetObjectItem(req, "messages");
+    cJSON *t = cJSON_GetObjectItem(req, "tools");
+    if (model && strcmp(model->valuestring, "test-model") == 0 &&
+        m && cJSON_GetArraySize(m) == 1 &&
+        t && cJSON_GetArraySize(t) == 1)
+        PASS();
+    else
+        FAIL("request structure mismatch");
+    cJSON_Delete(req); free(json);
+    cJSON_Delete(msgs); cJSON_Delete(tools);
+}
+
+/* ======== CONFIG TESTS ======== */
+
+static void test_config_no_key(void) {
+    TEST("config: fails without API key");
+    unsetenv("SUBZEROCLAW_API_KEY");
+    unsetenv("SUBZEROCLAW_MODEL");
+    unsetenv("SUBZEROCLAW_ENDPOINT");
+    Config cfg;
+    /* point config at nonexistent file so file parsing is skipped */
+    char *old_home = getenv("HOME") ? strdup(getenv("HOME")) : NULL;
+    setenv("HOME", "/tmp/szc_no_config", 1);
+    int rc = config_load(&cfg);
+    if (old_home) { setenv("HOME", old_home, 1); free(old_home); }
+    else unsetenv("HOME");
+    if (rc == -1) PASS();
+    else FAIL("expected failure");
+}
 
 static void test_config_defaults(void) {
     TEST("config: loads with env var");
     setenv("SUBZEROCLAW_API_KEY", "sk-test-fake-key", 1);
-    Cfg cfg;
+    Config cfg;
     int rc = config_load(&cfg);
     if (rc == 0 &&
-        strcmp(cfg.key, "sk-test-fake-key") == 0 &&
-        strstr(cfg.ep, "openrouter.ai"))
+        strcmp(cfg.api_key, "sk-test-fake-key") == 0 &&
+        strstr(cfg.endpoint, "openrouter.ai"))
         PASS();
     else
         FAIL("config mismatch");
@@ -259,19 +265,21 @@ int main(void) {
     printf("\n  SubZeroClaw test suite\n");
     printf("  ═══════════════════════════════════════════\n\n");
 
-    test_shell_ls();
+    test_shell_echo();
     test_shell_pipe();
     test_shell_stderr();
-    test_write_read_file();
-    test_write_mkdir();
     test_unknown_tool();
     test_shell_bad_args();
     test_tools_definitions();
     test_parse_stop_response();
     test_parse_tool_calls_response();
+    test_parse_error_response();
+    test_parse_garbage();
+    test_build_request();
     test_full_tool_dispatch();
     test_system_prompt();
     test_skills_loading();
+    test_config_no_key();
     test_config_defaults();
 
     printf("\n  ═══════════════════════════════════════════\n");
