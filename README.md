@@ -85,6 +85,14 @@ model = "anthropic/claude-sonnet-4-20250514"
 EOF
 ```
 
+Or just use the `.env.example`:
+
+```bash
+cp .env.example .env
+# Edit .env with your real API key
+source .env
+```
+
 Environment variables override the config file:
 
 ```
