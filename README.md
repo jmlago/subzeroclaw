@@ -35,7 +35,7 @@ SubZeroClaw doesn't simplify their architecture. It ignores it and writes the lo
 | Language          | C            | Rust         | TypeScript   |
 | Source            | ~380 lines   | ~15,000      | ~430,000     |
 | Binary            | 54 KB        | 3.4 MB       | 80+ MB       |
-| RAM (runtime)     | ~14 MB       | < 5 MB       | 80-120 MB    |
+| RAM (runtime)     | ~2 MB        | < 5 MB       | 80-120 MB    |
 | Compiles on Pi    | 0.5s         | OOM          | slow         |
 | Dependencies      | curl, cJSON  | ~100 crates  | ~800 npm     |
 
