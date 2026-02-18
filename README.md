@@ -85,7 +85,7 @@ mkdir -p ~/.subzeroclaw/skills
 
 cat > ~/.subzeroclaw/config << EOF
 api_key = "sk-or-your-openrouter-key"
-model = "anthropic/claude-sonnet-4-20250514"
+model = "minimax/minimax-m2.5"
 EOF
 ```
 
@@ -145,7 +145,7 @@ No vector DB. No embeddings. One API call to compress context.
 | Key | Default | Description |
 |-----|---------|-------------|
 | `api_key` | (required) | OpenRouter API key |
-| `model` | `anthropic/claude-sonnet-4-20250514` | Any OpenAI-compatible model |
+| `model` | `minimax/minimax-m2.5` | Any OpenAI-compatible model |
 | `endpoint` | `https://openrouter.ai/api/v1/chat/completions` | API endpoint |
 | `skills_dir` | `~/.subzeroclaw/skills` | Path to skill markdown files |
 | `log_dir` | `~/.subzeroclaw/logs` | Session log directory |

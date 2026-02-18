@@ -34,7 +34,7 @@ int config_load(Config *cfg) {
     if (!home) home = ".";
     memset(cfg, 0, sizeof(*cfg));
     snprintf(cfg->endpoint,   MAX_VALUE, "https://openrouter.ai/api/v1/chat/completions");
-    snprintf(cfg->model,      MAX_VALUE, "anthropic/claude-sonnet-4-20250514");
+    snprintf(cfg->model,      MAX_VALUE, "minimax/minimax-m2.5");
     snprintf(cfg->skills_dir, MAX_PATH,  "%s/.subzeroclaw/skills", home);
     snprintf(cfg->log_dir,    MAX_PATH,  "%s/.subzeroclaw/logs", home);
     cfg->max_turns = 200; cfg->max_messages = 40;
@@ -231,13 +231,30 @@ static int compact_messages(const Config *cfg, cJSON *msgs, FILE *log) {
     fprintf(stderr, "[compact] %d msgs, summarizing\n", total);
     log_write(log, "SYS", "compacting context");
 
-    /* send the full conversation to the model for summarization */
-    char *convo = cJSON_PrintUnformatted(msgs);
-    size_t plen = strlen(convo) + 256;
+    /* build text digest — keep user/assistant in full, trim only tool outputs */
+    size_t cap = 512000, len = 0;
+    char *convo = malloc(cap);
+    convo[0] = '\0';
+    cJSON *m = NULL;
+    cJSON_ArrayForEach(m, msgs) {
+        if (len + 256 >= cap) break;
+        cJSON *role = cJSON_GetObjectItem(m, "role");
+        cJSON *ct = cJSON_GetObjectItem(m, "content");
+        if (!role || !cJSON_IsString(role) || !ct || !cJSON_IsString(ct)) continue;
+        const char *r = role->valuestring, *c = ct->valuestring;
+        size_t clen = strlen(c);
+        if (!strcmp(r, "tool") && clen > 2000) {
+            /* tool outputs: first 1000 + ... + last 1000 */
+            len += snprintf(convo + len, cap - len, "tool: %.*s\n...[%zu bytes trimmed]...\n%s\n",
+                1000, c, clen - 2000, c + clen - 1000);
+        } else {
+            len += snprintf(convo + len, cap - len, "%s: %s\n", r, c);
+        }
+    }
+    size_t plen = len + 128;
     char *prompt = malloc(plen);
-    snprintf(prompt, plen,
-        "Summarize this conversation. Keep all facts, file paths, commands, "
-        "and decisions. Be concise.\n\n%s", convo);
+    snprintf(prompt, plen, "Summarize this conversation. Keep all facts, file paths, "
+        "commands, and decisions. Be concise.\n\n%s", convo);
     free(convo);
 
     cJSON *sm = cJSON_CreateArray();
@@ -252,15 +269,18 @@ static int compact_messages(const Config *cfg, cJSON *msgs, FILE *log) {
     char *summary = strdup(resp.text); free(rb); response_free(&resp);
     log_write(log, "COMPACT", summary);
 
-    /* rebuild: system + summary pair + last 10 raw messages */
-    int keep = 10;
-    int start = total - keep;
+    /* keep last ~10 msgs, but skip orphaned tool msgs at the boundary
+       (their tool_call_ids reference deleted assistant msgs → API rejects) */
+    int start = total - 10;
     if (start < 1) start = 1;
+    while (start < total - 1) {
+        cJSON *r = cJSON_GetObjectItem(cJSON_GetArrayItem(msgs, start), "role");
+        if (!r || strcmp(r->valuestring, "tool") != 0) break;
+        start++;
+    }
 
-    /* delete everything except system prompt and last 10 */
     for (int i = start - 1; i >= 1; i--)
         cJSON_DeleteItemFromArray(msgs, i);
-    /* insert summary pair after system */
     cJSON_InsertItemInArray(msgs, 1, make_msg("user", "[Summary of previous context]"));
     cJSON_InsertItemInArray(msgs, 2, make_msg("assistant", summary));
     free(summary);
@@ -291,11 +311,11 @@ static void process_tool_calls(cJSON *tool_calls, cJSON *msgs, FILE *log) {
 static int agent_run(const Config *cfg, cJSON *msgs, cJSON *tools,
                      const char *input, FILE *log)
 {
-    compact_messages(cfg, msgs, log);
     cJSON_AddItemToArray(msgs, make_msg("user", input));
     log_write(log, "USER", input);
 
     for (int turn = 1; turn <= cfg->max_turns; turn++) {
+        compact_messages(cfg, msgs, log);
         char *rj = build_request(cfg, msgs, tools); if (!rj) return -1;
         fprintf(stderr, "[%d] %s...\n", turn, cfg->model);
         char *rb = http_post(cfg->endpoint, cfg->api_key, rj); free(rj);
