@@ -14,6 +14,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#define SZC_VERSION "0.2.0"
 #define MAX_PATH   512
 #define MAX_VALUE  1024
 #define MAX_OUTPUT (128 * 1024)
@@ -464,6 +465,15 @@ static int agent_run(const Config *cfg, const char *task, FILE *log) {
 
 #ifndef SZC_TEST
 int main(int argc, char **argv) {
+    if (argc == 2 && (!strcmp(argv[1], "--version") || !strcmp(argv[1], "-v"))) {
+        printf("subzeroclaw %s\n"
+               "Copyright (c) 2025-2026 SubZeroClaw contributors\n"
+               "License MIT: https://opensource.org/licenses/MIT\n"
+               "This is free software: you are free to change and redistribute it.\n"
+               "There is NO WARRANTY, to the extent permitted by law.\n",
+               SZC_VERSION);
+        return 0;
+    }
     Config cfg;
     if (config_load(&cfg) < 0) return 1;
 
