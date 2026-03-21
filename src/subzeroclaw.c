@@ -296,7 +296,17 @@ static void process_tool_calls(cJSON *tool_calls, cJSON *msgs, FILE *log) {
         cJSON *name = cJSON_GetObjectItem(fn, "name");
         cJSON *args = cJSON_GetObjectItem(fn, "arguments");
         if (!name || !args) continue;
-        log_write(log, "TOOL", name->valuestring);
+        // Log tool name with command argument
+        cJSON *parsed_args = cJSON_Parse(args->valuestring);
+        cJSON *cmd_arg = parsed_args ? cJSON_GetObjectItem(parsed_args, "command") : NULL;
+        if (cmd_arg && cJSON_IsString(cmd_arg)) {
+            char tool_log[4096];
+            snprintf(tool_log, sizeof(tool_log), "%s: %s", name->valuestring, cmd_arg->valuestring);
+            log_write(log, "TOOL", tool_log);
+        } else {
+            log_write(log, "TOOL", name->valuestring);
+        }
+        if (parsed_args) cJSON_Delete(parsed_args);
         char *result = tool_execute(name->valuestring, args->valuestring);
         log_write(log, "RES", result ? result : "null");
         cJSON *tm = cJSON_CreateObject();
@@ -389,7 +399,9 @@ int main(int argc, char **argv) {
             while (len && strchr("\n\r", input[len - 1])) input[--len] = '\0';
             if (!len) continue;
             if (!strcmp(input, "/quit") || !strcmp(input, "/exit")) break;
-            agent_run(&cfg, msgs, tools, input, log); printf("\n");
+            agent_run(&cfg, msgs, tools, input, log);
+            printf("\n<<TURN_COMPLETE>>\n");
+            fflush(stdout);
         }
     }
     cJSON_Delete(msgs); cJSON_Delete(tools); free(sysprompt);
