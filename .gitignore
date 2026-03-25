@@ -19,3 +19,15 @@ watchdog
 
 # macOS
 .DS_Store
+
+# Python Docker Agent additions
+.env
+*.pyc
+__pycache__/
+data/vault/mcp-servers.json
+data/logs/
+data/conversation.json
+*.db
+*.sqlite
+*.log
+.DS_Store
