@@ -1,0 +1,37 @@
+[
+  {
+    "id": "notion",
+    "name": "Notion API",
+    "description": "Query and update Notion databases and pages. Use this for project tracking, note management, and database queries.",
+    "enabled": true,
+    "target_base_url": "https://api.notion.com/v1",
+    "auth_type": "header",
+    "auth_header": "Authorization",
+    "auth_value": "Bearer ntn_[YOUR_NOTION_INTEGRATION_TOKEN]",
+    "extra_headers": {
+      "Notion-Version": "2022-06-28"
+    },
+    "rate_limit": "60/minute"
+  },
+  {
+    "id": "weather",
+    "name": "OpenWeatherMap API",
+    "description": "Get current weather conditions and forecasts for any city. Use GET /weather?q=CityName&units=metric for current weather.",
+    "enabled": false,
+    "target_base_url": "https://api.openweathermap.org/data/2.5",
+    "auth_type": "query_param",
+    "auth_param": "appid",
+    "auth_value": "[YOUR_OPENWEATHERMAP_API_KEY]",
+    "rate_limit": "60/minute"
+  },
+  {
+    "id": "my-api",
+    "name": "[YOUR_API_NAME]",
+    "description": "[DESCRIBE WHAT YOUR API DOES -- the agent reads this to know when to use it]",
+    "enabled": false,
+    "target_base_url": "https://[YOUR_API_DOMAIN]/v1",
+    "auth_type": "bearer",
+    "auth_value": "[YOUR_API_KEY]",
+    "rate_limit": "30/minute"
+  }
+]

@@ -175,6 +175,99 @@ OpenClaw solved the agentic loop with 430,000 lines of TypeScript. ZeroClaw re-s
 
 SubZeroClaw asks: what if the problem is just "one agent, one skill, one device"? Then the answer is ~380 readable lines of C.
 
+---
+
+## Python Docker Agent Extension
+
+> This fork adds a **Python-based Docker deployment** of the SubZeroClaw philosophy — same core loop, but with Telegram integration, MCP tool proxy, persistent identity/memory, and containerized isolation.
+
+If the original SubZeroClaw is "one agent, one skill, one device", this extension is "one agent, many skills, one Docker container, one Telegram chat".
+
+### What this adds
+
+```
+agent-core/          Python agent loop (same philosophy: LLM + tools + loop)
+telegram-bot/        Telegram bot interface
+proxy/               Credential proxy for API key isolation
+data/                Identity, soul, skills, memory, MCP configs
+docker-compose.yml   Two containers: bot + proxy
+STUDENT-GUIDE.md     Workshop-ready tutorial
+```
+
+### Architecture
+
+```
+┌──────────────────────────────────────────┐
+│              Docker Host                 │
+│                                          │
+│  ┌────────────┐    ┌─────────────────┐  │
+│  │  Telegram   │    │  Credential     │  │
+│  │  Bot        │◄──►│  Proxy          │  │
+│  │  (Python)   │    │  (FastAPI)      │  │
+│  └──────┬──────┘    └──────┬──────────┘  │
+│         │                   │            │
+│         ▼                   ▼            │
+│  ┌────────────────────────────────────┐  │
+│  │       Shared Data Volume          │  │
+│  │  /data/core/     Identity, Soul   │  │
+│  │  /data/skills/   Capabilities     │  │
+│  │  /data/memory/   Persistent state │  │
+│  │  /data/vault/    MCP configs      │  │
+│  └────────────────────────────────────┘  │
+└──────────────────────────────────────────┘
+```
+
+### Quick Start (Docker)
+
+```bash
+# Clone this fork
+git clone https://github.com/sergiosegado/subzeroclaw.git my-agent
+cd my-agent
+
+# Configure
+cp .env.example .env
+# Edit .env: add your Telegram bot token, API key, and Telegram user ID
+
+# Customize your agent
+# Edit data/core/IDENTITY.md — give it a name and purpose
+# Edit data/core/SOUL.md — define behavioral rules
+
+# Deploy
+docker compose up -d --build
+docker compose cp data/. agent-bot:/agent-data/
+
+# Check logs
+docker logs -f my-agent-agent-bot-1
+
+# Chat with your agent on Telegram
+```
+
+### Core Concepts (same philosophy, Python implementation)
+
+| Concept | Original C | Python Docker |
+|---------|-----------|---------------|
+| Skill loading | `~/.subzeroclaw/skills/*.md` | `/data/skills/*.md` |
+| Tool execution | `popen()` shell | `subprocess.run()` shell + MCP proxy |
+| Context compaction | LLM summarize at 40 msgs | Same, via `conversation.py` |
+| Config | `~/.subzeroclaw/config` | `.env` + `config.json` |
+| Identity | Skill files | `IDENTITY.md` + `SOUL.md` (security anchor) |
+| Memory | Conversation log | `MEMORY.md` (persistent across sessions) |
+| Heartbeat | Watchdog binary | `heartbeat.py` (scheduled monitoring) |
+
+### What the Python version adds
+
+- **Telegram interface** — chat with your agent from your phone
+- **Credential proxy** — API keys never touch the agent; injected by a separate container
+- **MCP tool** — call external APIs (Notion, weather, any REST) with automatic auth injection
+- **Identity anchor** — IDENTITY.md loads before user input, can't be overridden by conversation
+- **Persistent memory** — MEMORY.md survives container restarts
+- **Docker isolation** — agent runs in its own container with controlled filesystem access
+
+### See Also
+
+- [STUDENT-GUIDE.md](STUDENT-GUIDE.md) — step-by-step workshop tutorial
+- [Original SubZeroClaw](https://github.com/jmlago/subzeroclaw) — the C implementation this is based on
+
 ## License
 
 MIT

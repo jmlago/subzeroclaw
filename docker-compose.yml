@@ -1,0 +1,33 @@
+services:
+  agent-bot:
+    build:
+      context: .
+      dockerfile: telegram-bot/Dockerfile
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - SUBZEROCLAW_API_KEY=${ANTHROPIC_API_KEY}
+      - SUBZEROCLAW_MODEL=${SUBZEROCLAW_MODEL:-claude-sonnet-4-20250514}
+      - OPENROUTER_ENDPOINT=${OPENROUTER_ENDPOINT:-https://api.anthropic.com/v1/messages}
+      - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}
+      - SZC_HOME=/agent-data
+      - SZC_PROXY_URL=http://agent-proxy:9090
+    volumes:
+      - agent-data:/agent-data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    depends_on:
+      - agent-proxy
+
+  agent-proxy:
+    build:
+      context: ./proxy
+    environment:
+      - SZC_HOME=/agent-data
+    volumes:
+      - agent-data:/agent-data
+    expose:
+      - "9090"
+    restart: unless-stopped
+
+volumes:
+  agent-data:
