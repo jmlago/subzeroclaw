@@ -129,9 +129,12 @@ char *tool_execute(const char *name, const char *args_json) {
     cJSON *cmd_item = args ? cJSON_GetObjectItem(args, "command") : NULL;
     const char *cmd = (cmd_item && cJSON_IsString(cmd_item)) ? cmd_item->valuestring : NULL;
     if (!cmd) { if (args) cJSON_Delete(args); return strdup("error: missing 'command'"); }
+    /* Wrap command in braces to redirect stderr without breaking heredocs.
+       "cmd 2>&1" breaks heredocs; "{ cmd; } 2>&1" works correctly. */
     size_t len = strlen(cmd);
-    char *full = malloc(len + 8);
-    memcpy(full, cmd, len); memcpy(full + len, " 2>&1", 6);
+    char *full = malloc(len + 16);
+    memcpy(full, "{ ", 2); memcpy(full + 2, cmd, len);
+    memcpy(full + 2 + len, "; } 2>&1", 9);
     if (args) cJSON_Delete(args);
     FILE *fp = popen(full, "r"); free(full);
     if (!fp) return strdup("error: popen failed");
